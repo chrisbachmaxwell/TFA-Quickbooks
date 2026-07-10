@@ -72,7 +72,8 @@ export async function categorizeAllViaUi(
     const count = await rows.count();
     if (count === 0) break;
     const row = rows.first();
-    const description = (await row.locator("td").nth(1).innerText()).trim();
+    // td 0 is the bulk checkbox, td 1 the date, td 2 the description
+    const description = (await row.locator("td").nth(2).innerText()).trim();
     const target = mapping[description];
     if (!target) throw new Error(`no category mapping for "${description}"`);
     await row

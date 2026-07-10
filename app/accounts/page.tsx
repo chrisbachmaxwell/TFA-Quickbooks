@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import type { Account } from "@prisma/client";
 import {
   createAccount,
+  installStarterAccounts,
   renameAccount,
   setAccountActive,
   setAccountCash,
@@ -139,7 +140,15 @@ export default async function AccountsPage({
           <p>
             <strong>No accounts yet.</strong>
           </p>
-          <p>Create the first one above — most books start with a bank account (Asset).</p>
+          <p>
+            Create the first one above — or install a sensible starter set for
+            a holding company and rename from there.
+          </p>
+          <form action={installStarterAccounts}>
+            <button type="submit" data-testid="starter-accounts">
+              Add starter accounts
+            </button>
+          </form>
         </div>
       ) : (
         TYPE_ORDER.map((type) => {

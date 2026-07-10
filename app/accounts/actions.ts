@@ -69,6 +69,46 @@ export async function renameAccount(formData: FormData): Promise<void> {
   redirect("/accounts");
 }
 
+const STARTER_ACCOUNTS: Array<{
+  name: string;
+  type: AccountType;
+  cash?: boolean;
+}> = [
+  { name: "Checking", type: "ASSET", cash: true },
+  { name: "Savings", type: "ASSET", cash: true },
+  { name: "Investments", type: "ASSET" },
+  { name: "Credit Card", type: "LIABILITY" },
+  { name: "Owner Contributions", type: "EQUITY" },
+  { name: "Owner Draws", type: "EQUITY" },
+  { name: "Dividend Income", type: "INCOME" },
+  { name: "Interest Income", type: "INCOME" },
+  { name: "Capital Gains", type: "INCOME" },
+  { name: "Consulting Income", type: "INCOME" },
+  { name: "Accounting & Legal", type: "EXPENSE" },
+  { name: "Bank Fees", type: "EXPENSE" },
+  { name: "Insurance", type: "EXPENSE" },
+  { name: "Office Expenses", type: "EXPENSE" },
+  { name: "Software & Subscriptions", type: "EXPENSE" },
+  { name: "Taxes & Licenses", type: "EXPENSE" },
+  { name: "Travel", type: "EXPENSE" },
+];
+
+export async function installStarterAccounts(): Promise<void> {
+  const existing = await prisma.account.count();
+  if (existing > 0) {
+    fail("Starter accounts are only for an empty chart of accounts.");
+  }
+  await prisma.account.createMany({
+    data: STARTER_ACCOUNTS.map((a) => ({
+      name: a.name,
+      type: a.type,
+      cash: a.cash ?? false,
+    })),
+  });
+  revalidatePath("/accounts");
+  redirect("/accounts");
+}
+
 export async function setAccountCash(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const cash = String(formData.get("cash") ?? "") === "true";

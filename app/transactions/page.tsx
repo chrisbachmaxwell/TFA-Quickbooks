@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { formatCents } from "@/lib/money";
-import { categorize, setExcluded, uncategorize } from "./actions";
+import { buildSuggestionMap, normalizeDescription } from "@/lib/suggestions";
+import { bulkCategorize, categorize, setExcluded, uncategorize } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +21,9 @@ function Amount({ cents }: { cents: number }) {
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; bulk?: string; bulkSkipped?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, bulk, bulkSkipped } = await searchParams;
   const [transactions, accounts] = await Promise.all([
     prisma.bankTransaction.findMany({
       include: {
@@ -43,6 +44,24 @@ export default async function TransactionsPage({
   const categorized = transactions.filter((t) => t.journalEntryId);
   const excluded = transactions.filter((t) => t.excluded);
 
+  // Payee memory: last single-account categorization per description.
+  const suggestions = buildSuggestionMap(
+    categorized.flatMap((t) => {
+      const nonBank =
+        t.journalEntry?.lines.filter((l) => l.accountId !== t.bankAccountId) ??
+        [];
+      return nonBank.length === 1
+        ? [
+            {
+              description: t.description,
+              accountId: nonBank[0].accountId,
+              at: t.journalEntry!.createdAt,
+            },
+          ]
+        : [];
+    }),
+  );
+
   return (
     <div>
       <div className="page-header">
@@ -60,6 +79,15 @@ export default async function TransactionsPage({
           {error}
         </div>
       )}
+      {bulk !== undefined && (
+        <div className="banner success" data-testid="bulk-result">
+          Categorized {bulk} transaction{bulk === "1" ? "" : "s"}
+          {bulkSkipped && bulkSkipped !== "0"
+            ? `, skipped ${bulkSkipped}`
+            : ""}
+          .
+        </div>
+      )}
 
       {transactions.length === 0 && (
         <div className="card empty-state">
@@ -74,10 +102,35 @@ export default async function TransactionsPage({
       )}
 
       <h2>For review ({uncategorized.length})</h2>
+      {uncategorized.length > 0 && (
+        <form
+          action={bulkCategorize}
+          id="bulk-form"
+          className="inline"
+          data-testid="bulk-form"
+          style={{ marginBottom: 8 }}
+        >
+          <span className="muted">With selected:</span>
+          <select name="accountId" required defaultValue="" aria-label="Bulk category">
+            <option value="" disabled>
+              Pick an account…
+            </option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name} ({a.type.toLowerCase()})
+              </option>
+            ))}
+          </select>
+          <button type="submit" className="secondary">
+            Categorize selected
+          </button>
+        </form>
+      )}
       <div className="card flush">
         <table data-testid="uncategorized-table">
           <thead>
             <tr>
+              <th></th>
               <th>Date</th>
               <th>Description</th>
               <th className="amount">Amount</th>
@@ -88,13 +141,30 @@ export default async function TransactionsPage({
           <tbody>
             {uncategorized.length === 0 && (
               <tr>
-                <td colSpan={5} className="muted">
+                <td colSpan={6} className="muted">
                   Nothing waiting for review. ✨
                 </td>
               </tr>
             )}
-            {uncategorized.map((t) => (
+            {uncategorized.map((t) => {
+              const suggestedId = suggestions.get(
+                normalizeDescription(t.description),
+              );
+              const suggestionValid =
+                !!suggestedId &&
+                suggestedId !== t.bankAccountId &&
+                accounts.some((a) => a.id === suggestedId);
+              return (
               <tr key={t.id} data-testid="uncategorized-row">
+                <td>
+                  <input
+                    type="checkbox"
+                    name="ids"
+                    value={t.id}
+                    form="bulk-form"
+                    aria-label={`Select ${t.description}`}
+                  />
+                </td>
                 <td>{isoDate(t.date)}</td>
                 <td>{t.description}</td>
                 <Amount cents={t.amountCents} />
@@ -103,9 +173,13 @@ export default async function TransactionsPage({
                   <form action={categorize} className="inline">
                     <input type="hidden" name="transactionId" value={t.id} />
                     <select
+                      // Remount when the suggestion changes: soft navigations
+                      // keep an uncontrolled select's live DOM value, so a new
+                      // defaultValue only applies on a fresh element.
+                      key={suggestionValid ? suggestedId : "none"}
                       name="accountId"
                       required
-                      defaultValue=""
+                      defaultValue={suggestionValid ? suggestedId : ""}
                       aria-label={`Category for ${t.description}`}
                     >
                       <option value="" disabled>
@@ -119,6 +193,11 @@ export default async function TransactionsPage({
                           </option>
                         ))}
                     </select>
+                    {suggestionValid && (
+                      <span className="muted" data-testid="suggested-hint">
+                        suggested
+                      </span>
+                    )}
                     <button type="submit">Categorize</button>
                   </form>{" "}
                   <form action={setExcluded} className="inline">
@@ -131,7 +210,8 @@ export default async function TransactionsPage({
                   <Link href={`/transactions/${t.id}/split`}>Split</Link>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

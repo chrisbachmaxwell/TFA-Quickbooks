@@ -22,6 +22,29 @@ async function run(op: () => Promise<void>): Promise<void> {
   redirect("/transactions");
 }
 
+export async function bulkCategorize(formData: FormData): Promise<void> {
+  const accountId = String(formData.get("accountId") ?? "");
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  if (!accountId) {
+    redirect(`/transactions?error=${encodeURIComponent("Pick an account for the selected rows.")}`);
+  }
+  if (ids.length === 0) {
+    redirect(`/transactions?error=${encodeURIComponent("Select at least one transaction.")}`);
+  }
+  let done = 0;
+  let skipped = 0;
+  for (const id of ids) {
+    try {
+      await categorizeBankTransaction(id, accountId);
+      done += 1;
+    } catch {
+      skipped += 1;
+    }
+  }
+  revalidatePath("/transactions");
+  redirect(`/transactions?bulk=${done}&bulkSkipped=${skipped}`);
+}
+
 export async function uncategorize(formData: FormData): Promise<void> {
   const transactionId = String(formData.get("transactionId") ?? "");
   await run(() => uncategorizeBankTransaction(transactionId));

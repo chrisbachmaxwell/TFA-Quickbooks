@@ -1,18 +1,18 @@
 import { profitAndLoss } from "@/lib/ledger";
 import { loadLedger } from "@/lib/reports";
 import { formatCents } from "@/lib/money";
+import { parseIsoDateStrict, todayUtc } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
-function parseIsoDate(s: string | undefined, fallback: Date): Date {
-  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return fallback;
-  return new Date(`${s}T00:00:00Z`);
-}
-
-function todayUtc(): Date {
-  const now = new Date();
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+function reportError(message: string) {
+  return (
+    <div>
+      <h1>Profit &amp; loss</h1>
+      <div className="banner error" data-testid="error-banner">
+        {message}
+      </div>
+    </div>
   );
 }
 
@@ -24,8 +24,16 @@ export default async function ProfitAndLossPage({
   const params = await searchParams;
   const today = todayUtc();
   const startOfYear = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
-  const from = parseIsoDate(params.from, startOfYear);
-  const to = parseIsoDate(params.to, today);
+  const from = params.from ? parseIsoDateStrict(params.from) : startOfYear;
+  const to = params.to ? parseIsoDateStrict(params.to) : today;
+  if (from === null || to === null) {
+    return reportError(
+      `"${from === null ? params.from : params.to}" is not a valid date — use YYYY-MM-DD.`,
+    );
+  }
+  if (from.getTime() > to.getTime()) {
+    return reportError("The from date is after the to date.");
+  }
   const { accounts, lines } = await loadLedger();
   const report = profitAndLoss(accounts, lines, from, to);
 

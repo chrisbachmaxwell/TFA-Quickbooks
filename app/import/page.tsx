@@ -7,9 +7,14 @@ export const dynamic = "force-dynamic";
 export default async function ImportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; imported?: string; skipped?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    imported?: string;
+    skipped?: string;
+    zeros?: string;
+  }>;
 }) {
-  const { error, imported, skipped } = await searchParams;
+  const { error, imported, skipped, zeros } = await searchParams;
   const bankAccounts = await prisma.account.findMany({
     where: { type: "ASSET", active: true },
     orderBy: { name: "asc" },
@@ -26,7 +31,10 @@ export default async function ImportPage({
       {imported !== undefined && (
         <div className="banner success" data-testid="import-result">
           Imported {imported} transaction{imported === "1" ? "" : "s"}, skipped{" "}
-          {skipped} duplicate{skipped === "1" ? "" : "s"}.{" "}
+          {skipped} duplicate{skipped === "1" ? "" : "s"}.
+          {zeros !== undefined && zeros !== "0"
+            ? ` Ignored ${zeros} zero-amount row${zeros === "1" ? "" : "s"}.`
+            : ""}{" "}
           <Link href="/transactions">View transactions</Link>
         </div>
       )}

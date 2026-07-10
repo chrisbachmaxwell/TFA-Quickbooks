@@ -20,6 +20,14 @@ describe("parseAmountToCents", () => {
     expect(() => parseAmountToCents("45.678")).toThrow(/unparseable/);
     expect(() => parseAmountToCents("4 5")).toThrow(/unparseable/);
   });
+
+  it("rejects decimal-comma and malformed grouping instead of inflating 100x", () => {
+    expect(() => parseAmountToCents("12,34")).toThrow(/comma/); // European $12.34 must NOT become $1,234.00
+    expect(() => parseAmountToCents("1.234,56")).toThrow(/unparseable|comma/);
+    expect(() => parseAmountToCents("1,2,3")).toThrow(/comma/);
+    expect(() => parseAmountToCents("12,3456")).toThrow(/comma/);
+    expect(parseAmountToCents("12,345,678.90")).toBe(1234567890);
+  });
 });
 
 describe("formatCents", () => {
@@ -56,6 +64,14 @@ describe("parseBankStatementCsv", () => {
   it("accepts memo/details/payee as the description column", () => {
     const rows = parseBankStatementCsv("Date,Memo,Amount\n2026-01-05,Coffee,-4.50");
     expect(rows[0].description).toBe("Coffee");
+  });
+
+  it("tolerates a space before an opening quote", () => {
+    const rows = parseBankStatementCsv(
+      'Date,Description,Amount\n2026-03-10, "Legal fees, Smith & Co",-450.75',
+    );
+    expect(rows[0].description).toBe("Legal fees, Smith & Co");
+    expect(rows[0].amountCents).toBe(-45075);
   });
 
   it("names the offending row on bad data", () => {

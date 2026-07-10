@@ -1,20 +1,9 @@
 import { balanceSheet } from "@/lib/ledger";
 import { loadLedger } from "@/lib/reports";
 import { formatCents } from "@/lib/money";
+import { parseIsoDateStrict, todayUtc } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
-
-function parseIsoDate(s: string | undefined, fallback: Date): Date {
-  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return fallback;
-  return new Date(`${s}T00:00:00Z`);
-}
-
-function todayUtc(): Date {
-  const now = new Date();
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-}
 
 export default async function BalanceSheetPage({
   searchParams,
@@ -22,7 +11,17 @@ export default async function BalanceSheetPage({
   searchParams: Promise<{ asOf?: string }>;
 }) {
   const params = await searchParams;
-  const asOf = parseIsoDate(params.asOf, todayUtc());
+  const asOf = params.asOf ? parseIsoDateStrict(params.asOf) : todayUtc();
+  if (asOf === null) {
+    return (
+      <div>
+        <h1>Balance sheet</h1>
+        <div className="banner error" data-testid="error-banner">
+          &quot;{params.asOf}&quot; is not a valid date — use YYYY-MM-DD.
+        </div>
+      </div>
+    );
+  }
   const asOfIso = asOf.toISOString().slice(0, 10);
   const { accounts, lines } = await loadLedger();
   const report = balanceSheet(accounts, lines, asOf);

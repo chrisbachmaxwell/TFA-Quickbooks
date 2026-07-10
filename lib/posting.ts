@@ -68,9 +68,15 @@ export async function categorizeBankTransaction(
         },
       },
     });
-    await tx.bankTransaction.update({
-      where: { id: bankTransactionId },
+    // Guarded update: under concurrent categorization (double-click, two
+    // tabs) only the writer that still sees journalEntryId = null wins;
+    // the loser's whole transaction — entry included — rolls back.
+    const claimed = await tx.bankTransaction.updateMany({
+      where: { id: bankTransactionId, journalEntryId: null },
       data: { journalEntryId: entry.id },
     });
+    if (claimed.count === 0) {
+      throw new Error("transaction is already categorized");
+    }
   });
 }

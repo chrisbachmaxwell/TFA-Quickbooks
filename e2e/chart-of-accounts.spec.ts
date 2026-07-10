@@ -69,3 +69,17 @@ test("duplicate account names are rejected with a visible error", async ({
   );
   await expect(page.getByTestId("account-row")).toHaveCount(5);
 });
+
+test("duplicate names differing only by case are also rejected", async ({
+  page,
+}) => {
+  await page.goto("/accounts");
+  const form = page.getByTestId("new-account-form");
+  await form.locator('input[name="name"]').fill("tfa checking");
+  await form.locator('select[name="type"]').selectOption({ label: "Asset" });
+  await form.getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByTestId("error-banner")).toContainText(
+    "already exists",
+  );
+  await expect(page.getByTestId("account-row")).toHaveCount(5);
+});

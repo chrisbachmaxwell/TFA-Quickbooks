@@ -37,8 +37,9 @@ function parseCsvRecords(text: string): string[][] {
         field += c;
         i += 1;
       }
-    } else if (c === '"' && field === "") {
+    } else if (c === '"' && field.trim() === "") {
       inQuotes = true;
+      field = ""; // drop padding before an opening quote (", \"a, b\"" case)
       i += 1;
     } else if (c === ",") {
       pushField();

@@ -15,11 +15,13 @@ export async function uploadStatement(formData: FormData): Promise<void> {
   }
   let imported = 0;
   let skipped = 0;
+  let ignoredZero = 0;
   let errorMessage: string | null = null;
   try {
     const result = await importBankStatement(bankAccountId, await file.text());
     imported = result.imported;
     skipped = result.skipped;
+    ignoredZero = result.ignoredZero;
   } catch (e) {
     errorMessage = e instanceof Error ? e.message : "import failed";
   }
@@ -27,5 +29,5 @@ export async function uploadStatement(formData: FormData): Promise<void> {
     redirect(`/import?error=${encodeURIComponent(errorMessage)}`);
   }
   revalidatePath("/transactions");
-  redirect(`/import?imported=${imported}&skipped=${skipped}`);
+  redirect(`/import?imported=${imported}&skipped=${skipped}&zeros=${ignoredZero}`);
 }

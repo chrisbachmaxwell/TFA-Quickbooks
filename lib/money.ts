@@ -9,13 +9,19 @@ export function parseAmountToCents(raw: string): number {
     negative = true;
     s = s.slice(1, -1).trim();
   }
-  s = s.replace(/\$/g, "").replace(/,/g, "").trim();
+  s = s.replace(/\$/g, "").trim();
   if (s.startsWith("-")) {
     negative = !negative;
     s = s.slice(1);
   } else if (s.startsWith("+")) {
     s = s.slice(1);
   }
+  // Commas are only valid as thousands grouping — "12,34" (a decimal-comma
+  // amount) must fail loudly rather than import as $1,234.00.
+  if (s.includes(",") && !/^\d{1,3}(,\d{3})+(\.\d{1,2})?$/.test(s)) {
+    throw new Error(`unparseable amount: "${raw}" (bad comma grouping)`);
+  }
+  s = s.replace(/,/g, "");
   if (!/^\d+(\.\d{1,2})?$/.test(s)) {
     throw new Error(`unparseable amount: "${raw}"`);
   }

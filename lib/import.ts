@@ -5,6 +5,7 @@ import { buildImportRecords } from "./import-hash";
 export interface ImportResult {
   imported: number;
   skipped: number;
+  ignoredZero: number;
 }
 
 export async function importBankStatement(
@@ -17,10 +18,17 @@ export async function importBankStatement(
   if (bankAccount.type !== "ASSET") {
     throw new Error("statements can only be imported into an asset (bank) account");
   }
-  const rows = parseBankStatementCsv(csvText);
+  const allRows = parseBankStatementCsv(csvText);
+  // $0.00 rows (voids, memo lines) can never be categorized into a balanced
+  // entry, so importing them would jam the uncategorized list forever.
+  const rows = allRows.filter((row) => row.amountCents !== 0);
   const result = await prisma.bankTransaction.createMany({
     data: buildImportRecords(bankAccountId, rows),
     skipDuplicates: true,
   });
-  return { imported: result.count, skipped: rows.length - result.count };
+  return {
+    imported: result.count,
+    skipped: rows.length - result.count,
+    ignoredZero: allRows.length - rows.length,
+  };
 }

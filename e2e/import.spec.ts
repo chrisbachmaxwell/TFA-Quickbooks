@@ -49,6 +49,31 @@ test("re-uploading the same statement skips every row and creates no duplicates"
   await expect(page.getByTestId("uncategorized-row")).toHaveCount(8);
 });
 
+test("zero-amount rows are ignored with a visible count, not imported", async ({
+  page,
+}) => {
+  await page.goto("/import");
+  const form = page.getByTestId("import-form");
+  await form.locator('input[name="file"]').setInputFiles({
+    name: "with-zero.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      "Date,Description,Amount\n2026-05-01,Voided check,0.00\n2026-05-02,Real charge,-12.00",
+    ),
+  });
+  await form.getByRole("button", { name: "Upload statement" }).click();
+  await expect(page.getByTestId("import-result")).toHaveText(
+    /Imported 1 transaction, skipped 0 duplicates\. Ignored 1 zero-amount row\./,
+  );
+  await page.goto("/transactions");
+  await expect(
+    page.getByTestId("uncategorized-row").filter({ hasText: "Voided check" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByTestId("uncategorized-row").filter({ hasText: "Real charge" }),
+  ).toHaveCount(1);
+});
+
 test("a broken CSV is rejected with a row-numbered error and imports nothing", async ({
   page,
 }) => {
@@ -64,5 +89,6 @@ test("a broken CSV is rejected with a row-numbered error and imports nothing", a
   await form.getByRole("button", { name: "Upload statement" }).click();
   await expect(page.getByTestId("error-banner")).toContainText("Row 3");
   await page.goto("/transactions");
-  await expect(page.getByTestId("uncategorized-row")).toHaveCount(8);
+  // 8 fixture rows + 1 from the zero-amount test above; the broken file added none.
+  await expect(page.getByTestId("uncategorized-row")).toHaveCount(9);
 });

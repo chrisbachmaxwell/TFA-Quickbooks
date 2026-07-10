@@ -94,3 +94,23 @@ test("P&L respects the date range", async ({ page }) => {
   await expect(page.getByTestId("total-expenses")).toHaveText("$104.25");
   await expect(page.getByTestId("net-income")).toHaveText("$3,595.75");
 });
+
+test("an impossible as-of date shows an error, not an empty balanced report", async ({
+  page,
+}) => {
+  await page.goto("/reports/balance-sheet?asOf=2026-99-99");
+  await expect(page.getByTestId("error-banner")).toContainText(
+    "not a valid date",
+  );
+  await expect(page.getByTestId("balance-check")).toHaveCount(0);
+});
+
+test("a P&L with from after to shows an error instead of an empty report", async ({
+  page,
+}) => {
+  await page.goto("/reports/pnl?from=2026-06-01&to=2026-01-01");
+  await expect(page.getByTestId("error-banner")).toContainText(
+    "from date is after",
+  );
+  await expect(page.getByTestId("net-income")).toHaveCount(0);
+});

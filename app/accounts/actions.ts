@@ -23,6 +23,12 @@ function isDuplicateName(e: unknown): boolean {
   );
 }
 
+function isMissingRecord(e: unknown): boolean {
+  return (
+    e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025"
+  );
+}
+
 export async function createAccount(formData: FormData): Promise<void> {
   const name = String(formData.get("name") ?? "").trim();
   const type = String(formData.get("type") ?? "");
@@ -48,13 +54,16 @@ export async function renameAccount(formData: FormData): Promise<void> {
   if (!id) fail("Missing account id.");
   if (!name) fail("Account name is required.");
   let duplicate = false;
+  let missing = false;
   try {
     await prisma.account.update({ where: { id }, data: { name } });
   } catch (e) {
     if (isDuplicateName(e)) duplicate = true;
+    else if (isMissingRecord(e)) missing = true;
     else throw e;
   }
   if (duplicate) fail(`An account named "${name}" already exists.`);
+  if (missing) fail("That account no longer exists — reload the page.");
   revalidatePath("/accounts");
   redirect("/accounts");
 }
@@ -63,7 +72,14 @@ export async function setAccountActive(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "");
   const active = String(formData.get("active") ?? "") === "true";
   if (!id) fail("Missing account id.");
-  await prisma.account.update({ where: { id }, data: { active } });
+  let missing = false;
+  try {
+    await prisma.account.update({ where: { id }, data: { active } });
+  } catch (e) {
+    if (isMissingRecord(e)) missing = true;
+    else throw e;
+  }
+  if (missing) fail("That account no longer exists — reload the page.");
   revalidatePath("/accounts");
   redirect("/accounts");
 }

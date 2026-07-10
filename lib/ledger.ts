@@ -226,6 +226,51 @@ export function balanceSheet(
   };
 }
 
+export interface TrialBalanceRow {
+  account: AccountInfo;
+  debitCents: number; // exactly one side is nonzero
+  creditCents: number;
+}
+
+export interface TrialBalance {
+  rows: TrialBalanceRow[];
+  totalDebitsCents: number;
+  totalCreditsCents: number;
+}
+
+/** Raw per-account net balances in debit/credit columns; totals must match. */
+export function trialBalance(
+  accounts: AccountInfo[],
+  lines: DatedLine[],
+  asOf: Date,
+): TrialBalance {
+  const nets = new Map<string, number>();
+  for (const line of lines) {
+    if (line.date.getTime() > asOf.getTime()) continue;
+    nets.set(
+      line.accountId,
+      (nets.get(line.accountId) ?? 0) + line.debitCents - line.creditCents,
+    );
+  }
+  const rows: TrialBalanceRow[] = [];
+  let totalDebitsCents = 0;
+  let totalCreditsCents = 0;
+  for (const account of accounts) {
+    const net = nets.get(account.id) ?? 0;
+    if (net === 0) continue;
+    const row: TrialBalanceRow = {
+      account,
+      debitCents: net > 0 ? net : 0,
+      creditCents: net < 0 ? -net : 0,
+    };
+    totalDebitsCents += row.debitCents;
+    totalCreditsCents += row.creditCents;
+    rows.push(row);
+  }
+  rows.sort((a, b) => a.account.name.localeCompare(b.account.name));
+  return { rows, totalDebitsCents, totalCreditsCents };
+}
+
 export interface ProfitAndLoss {
   income: ReportSection;
   expenses: ReportSection;

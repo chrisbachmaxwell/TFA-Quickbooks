@@ -57,6 +57,7 @@ const SECTIONS: Array<{
   {
     heading: "Reports",
     links: [
+      { href: "/reports", label: "All reports", icon: "accounts" },
       { href: "/reports/balance-sheet", label: "Balance sheet", icon: "statement" },
       { href: "/reports/pnl", label: "Profit & loss", icon: "pnl" },
       { href: "/reports/cash-flow", label: "Cash flow", icon: "cashflow" },

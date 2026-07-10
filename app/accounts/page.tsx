@@ -57,6 +57,7 @@ function AccountRow({ account }: { account: Account }) {
         </span>
       </td>
       <td style={{ textAlign: "right" }}>
+        <a href={`/accounts/${account.id}`}>Register</a>{" "}
         {account.type === "ASSET" && (
           <form action={setAccountCash} className="inline">
             <input type="hidden" name="id" value={account.id} />

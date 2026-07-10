@@ -58,6 +58,25 @@ export async function importFixtureViaUi(
   await expect(page.getByTestId("import-result")).toBeVisible();
 }
 
+export async function uploadCsvViaUi(
+  page: Page,
+  bankAccountName: string,
+  csvContent: string,
+): Promise<void> {
+  await page.goto("/import");
+  const form = page.getByTestId("import-form");
+  await form
+    .locator('select[name="bankAccountId"]')
+    .selectOption({ label: bankAccountName });
+  await form.locator('input[name="file"]').setInputFiles({
+    name: "statement.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(csvContent),
+  });
+  await form.getByRole("button", { name: "Upload statement" }).click();
+  await expect(page.getByTestId("import-result")).toBeVisible();
+}
+
 /**
  * Categorizes every uncategorized transaction via the UI, mapping statement
  * descriptions to account names. Fails if a description has no mapping.

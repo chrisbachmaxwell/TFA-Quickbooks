@@ -6,6 +6,9 @@ import {
   type EntryLine,
   type SplitInput,
 } from "./ledger";
+import { pickMirror, TRANSFER_MATCH_WINDOW_DAYS } from "./transfer-match";
+
+const MATCH_WINDOW_MS = TRANSFER_MATCH_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
 /** Posts a balanced journal entry; throws (and writes nothing) if invalid. */
 export async function postJournalEntry(input: {
@@ -82,6 +85,31 @@ export async function categorizeBankTransaction(
     });
     if (claimed.count === 0) {
       throw new Error("transaction is already categorized");
+    }
+
+    // Transfer to another cash account: the destination's statement carries
+    // a mirror row for the same movement — match it so it never double-posts.
+    if (category.cash) {
+      const candidates = await tx.bankTransaction.findMany({
+        where: {
+          bankAccountId: categoryAccountId,
+          journalEntryId: null,
+          matchedEntryId: null,
+          excluded: false,
+          amountCents: -txn.amountCents,
+          date: {
+            gte: new Date(txn.date.getTime() - MATCH_WINDOW_MS),
+            lte: new Date(txn.date.getTime() + MATCH_WINDOW_MS),
+          },
+        },
+      });
+      const mirrorId = pickMirror(txn.date, txn.amountCents, candidates);
+      if (mirrorId) {
+        await tx.bankTransaction.update({
+          where: { id: mirrorId },
+          data: { matchedEntryId: entry.id },
+        });
+      }
     }
   });
 }

@@ -1,11 +1,70 @@
 import { prisma } from "./db";
 import { parseBankStatementCsv } from "./csv";
 import { buildImportRecords } from "./import-hash";
+import { pickMirror, TRANSFER_MATCH_WINDOW_DAYS } from "./transfer-match";
+
+const MATCH_WINDOW_MS = TRANSFER_MATCH_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
 export interface ImportResult {
   imported: number;
   skipped: number;
   ignoredZero: number;
+  matchedTransfers: number;
+}
+
+/**
+ * Matches this account's open statement rows against transfer entries that
+ * were already posted from OTHER accounts' statements (the mirror arrived
+ * after the transfer was categorized).
+ */
+async function matchIncomingTransfers(bankAccountId: string): Promise<number> {
+  const openRows = await prisma.bankTransaction.findMany({
+    where: {
+      bankAccountId,
+      journalEntryId: null,
+      matchedEntryId: null,
+      excluded: false,
+    },
+  });
+  let matched = 0;
+  for (const row of openRows) {
+    const abs = Math.abs(row.amountCents);
+    const candidates = await prisma.journalEntry.findMany({
+      where: {
+        date: {
+          gte: new Date(row.date.getTime() - MATCH_WINDOW_MS),
+          lte: new Date(row.date.getTime() + MATCH_WINDOW_MS),
+        },
+        matchedTransfers: { none: {} },
+        bankTransaction: { bankAccountId: { not: bankAccountId } },
+        lines: {
+          some: {
+            accountId: bankAccountId,
+            debitCents: row.amountCents > 0 ? abs : 0,
+            creditCents: row.amountCents < 0 ? abs : 0,
+          },
+        },
+      },
+    });
+    // Reuse the pure picker's window/closest-date rules; amounts already agree.
+    const entryId = pickMirror(
+      row.date,
+      row.amountCents,
+      candidates.map((e) => ({
+        id: e.id,
+        date: e.date,
+        amountCents: -row.amountCents,
+      })),
+    );
+    if (entryId) {
+      await prisma.bankTransaction.update({
+        where: { id: row.id },
+        data: { matchedEntryId: entryId },
+      });
+      matched += 1;
+    }
+  }
+  return matched;
 }
 
 export async function importBankStatement(
@@ -28,9 +87,11 @@ export async function importBankStatement(
     data: buildImportRecords(bankAccountId, rows),
     skipDuplicates: true,
   });
+  const matchedTransfers = await matchIncomingTransfers(bankAccountId);
   return {
     imported: result.count,
     skipped: rows.length - result.count,
     ignoredZero: allRows.length - rows.length,
+    matchedTransfers,
   };
 }

@@ -12,7 +12,9 @@ export const dynamic = "force-dynamic";
 export default async function Dashboard() {
   const [{ accounts, lines }, toReview, hasAccounts] = await Promise.all([
     loadLedger(),
-    prisma.bankTransaction.count({ where: { journalEntryId: null } }),
+    prisma.bankTransaction.count({
+      where: { journalEntryId: null, excluded: false, matchedEntryId: null },
+    }),
     prisma.account.count().then((n) => n > 0),
   ]);
 

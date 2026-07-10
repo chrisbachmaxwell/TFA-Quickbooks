@@ -12,9 +12,10 @@ export default async function ImportPage({
     imported?: string;
     skipped?: string;
     zeros?: string;
+    matched?: string;
   }>;
 }) {
-  const { error, imported, skipped, zeros } = await searchParams;
+  const { error, imported, skipped, zeros, matched } = await searchParams;
   const bankAccounts = await prisma.account.findMany({
     where: { type: "ASSET", active: true, cash: true },
     orderBy: { name: "asc" },
@@ -43,6 +44,9 @@ export default async function ImportPage({
           {skipped} duplicate{skipped === "1" ? "" : "s"}.
           {zeros !== undefined && zeros !== "0"
             ? ` Ignored ${zeros} zero-amount row${zeros === "1" ? "" : "s"}.`
+            : ""}
+          {matched !== undefined && matched !== "0"
+            ? ` Matched ${matched} transfer${matched === "1" ? "" : "s"}.`
             : ""}{" "}
           <Link href="/transactions">View transactions</Link>
         </div>

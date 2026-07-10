@@ -39,6 +39,11 @@ model BankTransaction {
   importHash     String        @unique // dedupe key across re-uploads
   journalEntryId String?       @unique
   journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  // Mirror side of a transfer: this statement row is explained by an entry
+  // posted from the other account's statement. Deleting the entry (undo)
+  // un-matches the row automatically.
+  matchedEntryId String?
+  matchedEntry   JournalEntry? @relation("MatchedTransfers", fields: [matchedEntryId], references: [id], onDelete: SetNull)
   createdAt      DateTime      @default(now())
 }
 
@@ -46,9 +51,10 @@ model JournalEntry {
   id              String           @id @default(cuid())
   date            DateTime
   memo            String
-  lines           JournalLine[]
-  bankTransaction BankTransaction?
-  createdAt       DateTime         @default(now())
+  lines            JournalLine[]
+  bankTransaction  BankTransaction?
+  matchedTransfers BankTransaction[] @relation("MatchedTransfers")
+  createdAt        DateTime          @default(now())
 }
 
 model JournalLine {

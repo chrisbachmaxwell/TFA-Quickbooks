@@ -39,8 +39,9 @@ export default async function TransactionsPage({
   ]);
 
   const uncategorized = transactions.filter(
-    (t) => !t.journalEntryId && !t.excluded,
+    (t) => !t.journalEntryId && !t.excluded && !t.matchedEntryId,
   );
+  const matched = transactions.filter((t) => t.matchedEntryId);
   const categorized = transactions.filter((t) => t.journalEntryId);
   const excluded = transactions.filter((t) => t.excluded);
 
@@ -185,13 +186,24 @@ export default async function TransactionsPage({
                       <option value="" disabled>
                         Pick an account…
                       </option>
-                      {accounts
-                        .filter((a) => a.id !== t.bankAccountId)
-                        .map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.name} ({a.type.toLowerCase()})
-                          </option>
-                        ))}
+                      <optgroup label="Categories">
+                        {accounts
+                          .filter((a) => a.id !== t.bankAccountId && !a.cash)
+                          .map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name} ({a.type.toLowerCase()})
+                            </option>
+                          ))}
+                      </optgroup>
+                      <optgroup label="Transfer to / from">
+                        {accounts
+                          .filter((a) => a.id !== t.bankAccountId && a.cash)
+                          .map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name} (transfer)
+                            </option>
+                          ))}
+                      </optgroup>
                     </select>
                     {suggestionValid && (
                       <span className="muted" data-testid="suggested-hint">
@@ -304,6 +316,42 @@ export default async function TransactionsPage({
                       Restore
                     </button>
                   </form>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Matched transfers ({matched.length})</h2>
+      <div className="card flush">
+        <table data-testid="matched-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th className="amount">Amount</th>
+              <th>Bank account</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {matched.length === 0 && (
+              <tr>
+                <td colSpan={5} className="muted">
+                  Mirror rows of transfers you categorized land here — already
+                  in the books, nothing to do.
+                </td>
+              </tr>
+            )}
+            {matched.map((t) => (
+              <tr key={t.id} data-testid="matched-row">
+                <td>{isoDate(t.date)}</td>
+                <td>{t.description}</td>
+                <Amount cents={t.amountCents} />
+                <td>{t.bankAccount.name}</td>
+                <td className="muted">
+                  matched to a transfer — undo the transfer to release it
                 </td>
               </tr>
             ))}

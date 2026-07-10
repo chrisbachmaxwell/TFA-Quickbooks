@@ -20,6 +20,7 @@ model Account {
   name             String            @unique
   type             AccountType
   active           Boolean           @default(true)
+  cash             Boolean           @default(false) // bank/cash asset: statements import here; drives the cash-flow statement
   createdAt        DateTime          @default(now())
   lines            JournalLine[]
   bankTransactions BankTransaction[] @relation("BankAccountTransactions")

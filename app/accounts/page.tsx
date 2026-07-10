@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/db";
 import type { Account } from "@prisma/client";
-import { createAccount, renameAccount, setAccountActive } from "./actions";
+import {
+  createAccount,
+  renameAccount,
+  setAccountActive,
+  setAccountCash,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +46,8 @@ function AccountRow({ account }: { account: Account }) {
       <td>
         <span className={`badge ${account.type.toLowerCase()}`}>
           {TYPE_LABELS[account.type]}
-        </span>
+        </span>{" "}
+        {account.cash && <span className="badge asset">Cash</span>}
       </td>
       <td>
         <span
@@ -51,6 +57,19 @@ function AccountRow({ account }: { account: Account }) {
         </span>
       </td>
       <td style={{ textAlign: "right" }}>
+        {account.type === "ASSET" && (
+          <form action={setAccountCash} className="inline">
+            <input type="hidden" name="id" value={account.id} />
+            <input
+              type="hidden"
+              name="cash"
+              value={account.cash ? "false" : "true"}
+            />
+            <button type="submit" className="secondary">
+              {account.cash ? "Unmark cash" : "Mark as cash"}
+            </button>
+          </form>
+        )}{" "}
         <form action={setAccountActive} className="inline">
           <input type="hidden" name="id" value={account.id} />
           <input
@@ -105,6 +124,10 @@ export default async function AccountsPage({
               </option>
             ))}
           </select>
+          <label className="muted" style={{ border: "none", padding: 0 }}>
+            <input type="checkbox" name="cash" defaultChecked /> bank/cash
+            account (Asset only)
+          </label>
           <button type="submit">Create account</button>
         </form>
       </div>

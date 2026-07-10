@@ -16,7 +16,7 @@ export default async function ImportPage({
 }) {
   const { error, imported, skipped, zeros } = await searchParams;
   const bankAccounts = await prisma.account.findMany({
-    where: { type: "ASSET", active: true },
+    where: { type: "ASSET", active: true, cash: true },
     orderBy: { name: "asc" },
   });
 

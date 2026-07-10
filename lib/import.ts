@@ -15,8 +15,10 @@ export async function importBankStatement(
   const bankAccount = await prisma.account.findUniqueOrThrow({
     where: { id: bankAccountId },
   });
-  if (bankAccount.type !== "ASSET") {
-    throw new Error("statements can only be imported into an asset (bank) account");
+  if (bankAccount.type !== "ASSET" || !bankAccount.cash) {
+    throw new Error(
+      "statements can only be imported into a cash (bank) account — mark the account as cash on the chart of accounts",
+    );
   }
   const allRows = parseBankStatementCsv(csvText);
   // $0.00 rows (voids, memo lines) can never be categorized into a balanced

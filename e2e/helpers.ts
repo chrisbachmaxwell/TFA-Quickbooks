@@ -29,11 +29,13 @@ export async function createAccountViaUi(
   page: Page,
   name: string,
   type: AccountTypeLabel,
+  opts: { cash?: boolean } = {},
 ): Promise<void> {
   await page.goto("/accounts");
   const form = page.getByTestId("new-account-form");
   await form.locator('input[name="name"]').fill(name);
   await form.locator('select[name="type"]').selectOption({ label: type });
+  await form.locator('input[name="cash"]').setChecked(opts.cash ?? true);
   await form.getByRole("button", { name: "Create account" }).click();
   await expect(accountRow(page, name)).toBeVisible();
 }

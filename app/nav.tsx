@@ -29,6 +29,7 @@ const ICONS = {
   accounts: "M4 5h16M4 5v14h16V5M9 5v14m6-9h4m-4 4h4",
   statement: "M7 3h10a1 1 0 0 1 1 1v16l-3-2-3 2-3-2-3 2V4a1 1 0 0 1 1-1Zm3 5h4m-4 4h4",
   pnl: "M4 20V10m5 10V4m5 16v-7m5 7V8",
+  cashflow: "M4 12c2-4 5-4 8 0s6 4 8 0M4 6h4m-4 12h4m12-12h-4m4 12h-4",
 };
 
 const SECTIONS: Array<{
@@ -55,6 +56,7 @@ const SECTIONS: Array<{
     links: [
       { href: "/reports/balance-sheet", label: "Balance sheet", icon: "statement" },
       { href: "/reports/pnl", label: "Profit & loss", icon: "pnl" },
+      { href: "/reports/cash-flow", label: "Cash flow", icon: "cashflow" },
     ],
   },
 ];

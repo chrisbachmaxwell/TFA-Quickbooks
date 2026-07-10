@@ -32,12 +32,13 @@ function isMissingRecord(e: unknown): boolean {
 export async function createAccount(formData: FormData): Promise<void> {
   const name = String(formData.get("name") ?? "").trim();
   const type = String(formData.get("type") ?? "");
+  const cash = type === "ASSET" && formData.get("cash") === "on";
   if (!name) fail("Account name is required.");
   if (!TYPES.includes(type as AccountType)) fail("Pick a valid account type.");
   let duplicate = false;
   try {
     await prisma.account.create({
-      data: { name, type: type as AccountType },
+      data: { name, type: type as AccountType, cash },
     });
   } catch (e) {
     if (isDuplicateName(e)) duplicate = true;
@@ -64,6 +65,18 @@ export async function renameAccount(formData: FormData): Promise<void> {
   }
   if (duplicate) fail(`An account named "${name}" already exists.`);
   if (missing) fail("That account no longer exists — reload the page.");
+  revalidatePath("/accounts");
+  redirect("/accounts");
+}
+
+export async function setAccountCash(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  const cash = String(formData.get("cash") ?? "") === "true";
+  if (!id) fail("Missing account id.");
+  const account = await prisma.account.findUnique({ where: { id } });
+  if (!account) fail("That account no longer exists — reload the page.");
+  if (account.type !== "ASSET") fail("Only asset accounts can be cash accounts.");
+  await prisma.account.update({ where: { id }, data: { cash } });
   revalidatePath("/accounts");
   redirect("/accounts");
 }

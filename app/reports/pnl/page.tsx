@@ -1,9 +1,18 @@
-import { profitAndLoss } from "@/lib/ledger";
+import { profitAndLoss, type ReportSection } from "@/lib/ledger";
 import { loadLedger } from "@/lib/reports";
 import { formatCents } from "@/lib/money";
 import { parseIsoDateStrict, todayUtc } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
+
+function prettyDate(date: Date): string {
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
 
 function reportError(message: string) {
   return (
@@ -13,6 +22,19 @@ function reportError(message: string) {
         {message}
       </div>
     </div>
+  );
+}
+
+function SectionRows({ section }: { section: ReportSection }) {
+  return (
+    <>
+      {section.rows.map((row) => (
+        <tr className="line" key={row.account.id}>
+          <td>{row.account.name}</td>
+          <td className="amount">{formatCents(row.balanceCents)}</td>
+        </tr>
+      ))}
+    </>
   );
 }
 
@@ -39,8 +61,16 @@ export default async function ProfitAndLossPage({
 
   return (
     <div>
-      <h1>Profit &amp; loss</h1>
-      <form method="get" className="inline">
+      <div className="page-header">
+        <div>
+          <h1>Profit &amp; loss</h1>
+          <p className="page-subtitle">
+            What TFA earned and spent over a period.
+          </p>
+        </div>
+      </div>
+
+      <form method="get" className="report-controls">
         <label>
           From{" "}
           <input
@@ -60,53 +90,50 @@ export default async function ProfitAndLossPage({
         <button type="submit">Run report</button>
       </form>
 
-      <h2>Income</h2>
-      <table>
-        <tbody>
-          {report.income.rows.map((row) => (
-            <tr key={row.account.id}>
-              <td>{row.account.name}</td>
-              <td className="amount">{formatCents(row.balanceCents)}</td>
-            </tr>
-          ))}
-          <tr className="total">
-            <td>Total income</td>
-            <td className="amount" data-testid="total-income">
-              {formatCents(report.income.totalCents)}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div className="statement">
+        <div className="statement-header">
+          <p className="statement-company">TFA</p>
+          <p className="statement-title">Profit &amp; Loss</p>
+          <p className="statement-dates">
+            {prettyDate(from)} – {prettyDate(to)}
+          </p>
+        </div>
 
-      <h2>Expenses</h2>
-      <table>
-        <tbody>
-          {report.expenses.rows.map((row) => (
-            <tr key={row.account.id}>
-              <td>{row.account.name}</td>
-              <td className="amount">{formatCents(row.balanceCents)}</td>
+        <table>
+          <tbody>
+            <tr className="section-head">
+              <td>Income</td>
+              <td></td>
             </tr>
-          ))}
-          <tr className="total">
-            <td>Total expenses</td>
-            <td className="amount" data-testid="total-expenses">
-              {formatCents(report.expenses.totalCents)}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            <SectionRows section={report.income} />
+            <tr className="total">
+              <td>Total income</td>
+              <td className="amount" data-testid="total-income">
+                {formatCents(report.income.totalCents)}
+              </td>
+            </tr>
 
-      <h2>Net income</h2>
-      <table>
-        <tbody>
-          <tr className="total">
-            <td>Net income</td>
-            <td className="amount" data-testid="net-income">
-              {formatCents(report.netIncomeCents)}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            <tr className="section-head">
+              <td>Expenses</td>
+              <td></td>
+            </tr>
+            <SectionRows section={report.expenses} />
+            <tr className="total">
+              <td>Total expenses</td>
+              <td className="amount" data-testid="total-expenses">
+                {formatCents(report.expenses.totalCents)}
+              </td>
+            </tr>
+
+            <tr className="grand-total">
+              <td>Net income</td>
+              <td className="amount" data-testid="net-income">
+                {formatCents(report.netIncomeCents)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

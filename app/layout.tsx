@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import Nav from "./nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,15 +13,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <nav>
-          <span className="brand">TFA Books</span>
-          <Link href="/accounts">Chart of accounts</Link>
-          <Link href="/import">Import statement</Link>
-          <Link href="/transactions">Transactions</Link>
-          <Link href="/reports/balance-sheet">Balance sheet</Link>
-          <Link href="/reports/pnl">Profit &amp; loss</Link>
-        </nav>
-        <main>{children}</main>
+        <div className="shell">
+          <Nav />
+          <div className="content">
+            <div className="container">{children}</div>
+          </div>
+        </div>
       </body>
     </html>
   );

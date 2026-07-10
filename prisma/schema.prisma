@@ -35,6 +35,7 @@ model BankTransaction {
   date           DateTime
   description    String
   amountCents    Int // signed: positive = money in, negative = money out
+  excluded       Boolean       @default(false) // hidden from review, never posted; still dedupes re-uploads
   importHash     String        @unique // dedupe key across re-uploads
   journalEntryId String?       @unique
   journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])

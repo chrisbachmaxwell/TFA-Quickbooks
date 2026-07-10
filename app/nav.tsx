@@ -49,7 +49,10 @@ const SECTIONS: Array<{
   },
   {
     heading: "Accounting",
-    links: [{ href: "/accounts", label: "Chart of accounts", icon: "accounts" }],
+    links: [
+      { href: "/accounts", label: "Chart of accounts", icon: "accounts" },
+      { href: "/journal", label: "Journal entries", icon: "statement" },
+    ],
   },
   {
     heading: "Reports",

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { formatCents } from "@/lib/money";
-import { categorize } from "./actions";
+import { categorize, setExcluded, uncategorize } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -37,8 +37,11 @@ export default async function TransactionsPage({
     }),
   ]);
 
-  const uncategorized = transactions.filter((t) => !t.journalEntryId);
+  const uncategorized = transactions.filter(
+    (t) => !t.journalEntryId && !t.excluded,
+  );
   const categorized = transactions.filter((t) => t.journalEntryId);
+  const excluded = transactions.filter((t) => t.excluded);
 
   return (
     <div>
@@ -117,6 +120,13 @@ export default async function TransactionsPage({
                         ))}
                     </select>
                     <button type="submit">Categorize</button>
+                  </form>{" "}
+                  <form action={setExcluded} className="inline">
+                    <input type="hidden" name="transactionId" value={t.id} />
+                    <input type="hidden" name="excluded" value="true" />
+                    <button type="submit" className="secondary">
+                      Exclude
+                    </button>
                   </form>
                 </td>
               </tr>
@@ -155,10 +165,60 @@ export default async function TransactionsPage({
                   <td>{t.description}</td>
                   <Amount cents={t.amountCents} />
                   <td>{t.bankAccount.name}</td>
-                  <td>{categoryLine?.account.name ?? "?"}</td>
+                  <td>
+                    {categoryLine?.account.name ?? "?"}{" "}
+                    <form action={uncategorize} className="inline">
+                      <input type="hidden" name="transactionId" value={t.id} />
+                      <button type="submit" className="secondary">
+                        Undo
+                      </button>
+                    </form>
+                  </td>
                 </tr>
               );
             })}
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Excluded ({excluded.length})</h2>
+      <div className="card flush">
+        <table data-testid="excluded-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th className="amount">Amount</th>
+              <th>Bank account</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {excluded.length === 0 && (
+              <tr>
+                <td colSpan={5} className="muted">
+                  Nothing excluded. Exclude statement rows that don&apos;t
+                  belong in the books (personal spend, bank artifacts).
+                </td>
+              </tr>
+            )}
+            {excluded.map((t) => (
+              <tr key={t.id} data-testid="excluded-row">
+                <td>{isoDate(t.date)}</td>
+                <td>{t.description}</td>
+                <Amount cents={t.amountCents} />
+                <td>{t.bankAccount.name}</td>
+                <td>
+                  <form action={setExcluded} className="inline">
+                    <input type="hidden" name="transactionId" value={t.id} />
+                    <input type="hidden" name="excluded" value="false" />
+                    <button type="submit" className="secondary">
+                      Restore
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

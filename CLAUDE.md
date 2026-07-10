@@ -22,13 +22,26 @@ The verification gates for this repo. **A goal's work only counts when these pas
 npm run gates
 ```
 
-which must run, in order, failing loudly if any stage fails:
+which runs, in order, failing loudly if any stage fails:
 
-1. `npm run build` — the app compiles
-2. `npm run lint` — lint is clean
+1. `npm run build` — Prisma client generation + Next.js production build
+2. `npm run lint` — eslint is clean
 3. `npm test` — unit tests (Vitest), including the double-entry posting engine
-4. `npm run e2e` — Playwright browser tests that click the app like a user (UI claims are only proven here — server/API checks alone don't count)
+4. `npm run e2e` — applies migrations, then Playwright browser tests that click the app like a user (UI claims are only proven here — server/API checks alone don't count)
 
-**No code exists yet, so these gates are aspirational:** making `npm run gates` real and runnable is the first item of the first goal (`goals/001-ledger-v0.md` in the brain). Until then, nothing can be marked done.
+### One-time local setup
+
+The gates need Node 20+ and a running PostgreSQL:
+
+```
+npm install
+cp .env.example .env            # points at postgresql://tfa:tfa@localhost:5432/tfa_quickbooks
+service postgresql start        # or however Postgres runs on this machine
+sudo -u postgres psql -c "CREATE USER tfa WITH PASSWORD 'tfa' CREATEDB;" \
+                      -c "CREATE DATABASE tfa_quickbooks OWNER tfa;"
+npx prisma migrate deploy
+```
+
+The Playwright suite **truncates every table** in the configured database — never point `.env` at a database whose data you care about. Playwright browsers: managed environments with a Chromium at `/opt/pw-browsers/chromium` are picked up automatically; elsewhere run `npx playwright install chromium` once.
 
 Never commit secrets, credentials, `.env` files, or real financial data to this repo.

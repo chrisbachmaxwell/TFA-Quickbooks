@@ -1,0 +1,142 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  color: #1a2233;
+  background: #f6f7f9;
+}
+
+nav {
+  background: #14532d;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+nav .brand {
+  color: #fff;
+  font-weight: 700;
+  padding: 14px 0;
+}
+
+nav a {
+  color: #d1e7dd;
+  text-decoration: none;
+  padding: 14px 0;
+  font-size: 14px;
+}
+
+nav a:hover {
+  color: #fff;
+}
+
+main {
+  max-width: 960px;
+  margin: 24px auto;
+  padding: 0 24px 48px;
+}
+
+h1 {
+  font-size: 22px;
+}
+
+h2 {
+  font-size: 17px;
+  margin-top: 32px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #dde1e6;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e8ebee;
+  font-size: 14px;
+}
+
+th {
+  background: #eef1f4;
+  font-weight: 600;
+}
+
+td.amount,
+th.amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+tr.total td {
+  font-weight: 700;
+  border-top: 2px solid #1a2233;
+}
+
+form.inline {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+input,
+select,
+button {
+  font: inherit;
+  font-size: 14px;
+  padding: 6px 8px;
+  border: 1px solid #c4cad2;
+  border-radius: 4px;
+  background: #fff;
+}
+
+button {
+  background: #14532d;
+  color: #fff;
+  border-color: #14532d;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #fff;
+  color: #14532d;
+}
+
+.banner {
+  padding: 10px 14px;
+  border-radius: 4px;
+  margin: 12px 0;
+  font-size: 14px;
+}
+
+.banner.error {
+  background: #fde8e8;
+  border: 1px solid #e02424;
+  color: #9b1c1c;
+}
+
+.banner.success {
+  background: #def7ec;
+  border: 1px solid #0e9f6e;
+  color: #03543f;
+}
+
+.muted {
+  color: #6b7280;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #dde1e6;
+  border-radius: 6px;
+  padding: 16px 20px;
+  margin: 16px 0;
+}

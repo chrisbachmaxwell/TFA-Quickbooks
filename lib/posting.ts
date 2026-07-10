@@ -1,0 +1,76 @@
+import { prisma } from "./db";
+import {
+  buildCategorizationLines,
+  validateEntryLines,
+  type EntryLine,
+} from "./ledger";
+
+/** Posts a balanced journal entry; throws (and writes nothing) if invalid. */
+export async function postJournalEntry(input: {
+  date: Date;
+  memo: string;
+  lines: EntryLine[];
+}): Promise<string> {
+  validateEntryLines(input.lines);
+  const entry = await prisma.journalEntry.create({
+    data: {
+      date: input.date,
+      memo: input.memo,
+      lines: {
+        create: input.lines.map((l) => ({
+          accountId: l.accountId,
+          debitCents: l.debitCents,
+          creditCents: l.creditCents,
+        })),
+      },
+    },
+  });
+  return entry.id;
+}
+
+/**
+ * Categorizes an uncategorized bank transaction: posts the balanced entry
+ * and links it to the transaction, atomically.
+ */
+export async function categorizeBankTransaction(
+  bankTransactionId: string,
+  categoryAccountId: string,
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const txn = await tx.bankTransaction.findUniqueOrThrow({
+      where: { id: bankTransactionId },
+    });
+    if (txn.journalEntryId) {
+      throw new Error("transaction is already categorized");
+    }
+    const category = await tx.account.findUniqueOrThrow({
+      where: { id: categoryAccountId },
+    });
+    if (!category.active) {
+      throw new Error("cannot categorize to an inactive account");
+    }
+    const lines = buildCategorizationLines(
+      txn.bankAccountId,
+      categoryAccountId,
+      txn.amountCents,
+    );
+    validateEntryLines(lines);
+    const entry = await tx.journalEntry.create({
+      data: {
+        date: txn.date,
+        memo: txn.description,
+        lines: {
+          create: lines.map((l) => ({
+            accountId: l.accountId,
+            debitCents: l.debitCents,
+            creditCents: l.creditCents,
+          })),
+        },
+      },
+    });
+    await tx.bankTransaction.update({
+      where: { id: bankTransactionId },
+      data: { journalEntryId: entry.id },
+    });
+  });
+}

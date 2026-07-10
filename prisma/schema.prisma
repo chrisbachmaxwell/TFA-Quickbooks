@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+model Account {
+  id               String            @id @default(cuid())
+  name             String            @unique
+  type             AccountType
+  active           Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  lines            JournalLine[]
+  bankTransactions BankTransaction[] @relation("BankAccountTransactions")
+}
+
+// A raw row from an imported bank statement. Uncategorized until it gets a
+// journal entry; the journal entry is what actually hits the ledger.
+model BankTransaction {
+  id             String        @id @default(cuid())
+  bankAccountId  String
+  bankAccount    Account       @relation("BankAccountTransactions", fields: [bankAccountId], references: [id])
+  date           DateTime
+  description    String
+  amountCents    Int // signed: positive = money in, negative = money out
+  importHash     String        @unique // dedupe key across re-uploads
+  journalEntryId String?       @unique
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  createdAt      DateTime      @default(now())
+}
+
+model JournalEntry {
+  id              String           @id @default(cuid())
+  date            DateTime
+  memo            String
+  lines           JournalLine[]
+  bankTransaction BankTransaction?
+  createdAt       DateTime         @default(now())
+}
+
+model JournalLine {
+  id          String       @id @default(cuid())
+  entryId     String
+  entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  accountId   String
+  account     Account      @relation(fields: [accountId], references: [id])
+  debitCents  Int          @default(0)
+  creditCents Int          @default(0)
+}

@@ -101,6 +101,60 @@ export function buildCategorizationLines(
       ];
 }
 
+export interface SplitInput {
+  accountId: string;
+  amountCents: number; // always positive; sign comes from the transaction
+}
+
+/**
+ * Builds the balanced lines that categorize one bank transaction across
+ * several accounts. Split amounts are positive and must sum to the
+ * transaction's absolute amount.
+ */
+export function buildSplitLines(
+  bankAccountId: string,
+  amountCents: number,
+  splits: SplitInput[],
+): EntryLine[] {
+  if (!Number.isInteger(amountCents)) throw new Error("amount must be integer cents");
+  if (amountCents === 0) throw new Error("zero-amount transaction cannot be categorized");
+  if (splits.length === 0) throw new Error("add at least one split line");
+  let total = 0;
+  for (const split of splits) {
+    if (!split.accountId) throw new Error("every split line needs an account");
+    if (split.accountId === bankAccountId) {
+      throw new Error("cannot split a transaction to its own bank account");
+    }
+    if (!Number.isInteger(split.amountCents) || split.amountCents <= 0) {
+      throw new Error("split amounts must be positive");
+    }
+    total += split.amountCents;
+  }
+  const abs = Math.abs(amountCents);
+  if (total !== abs) {
+    throw new Error(
+      `splits must add up to the transaction amount (off by ${total - abs} cents)`,
+    );
+  }
+  return amountCents > 0
+    ? [
+        { accountId: bankAccountId, debitCents: abs, creditCents: 0 },
+        ...splits.map((s) => ({
+          accountId: s.accountId,
+          debitCents: 0,
+          creditCents: s.amountCents,
+        })),
+      ]
+    : [
+        ...splits.map((s) => ({
+          accountId: s.accountId,
+          debitCents: s.amountCents,
+          creditCents: 0,
+        })),
+        { accountId: bankAccountId, debitCents: 0, creditCents: abs },
+      ];
+}
+
 export interface ReportRow {
   account: AccountInfo;
   balanceCents: number;

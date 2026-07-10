@@ -127,7 +127,8 @@ export default async function TransactionsPage({
                     <button type="submit" className="secondary">
                       Exclude
                     </button>
-                  </form>
+                  </form>{" "}
+                  <Link href={`/transactions/${t.id}/split`}>Split</Link>
                 </td>
               </tr>
             ))}
@@ -156,9 +157,16 @@ export default async function TransactionsPage({
               </tr>
             )}
             {categorized.map((t) => {
-              const categoryLine = t.journalEntry?.lines.find(
-                (l) => l.accountId !== t.bankAccountId,
-              );
+              const categoryLines =
+                t.journalEntry?.lines.filter(
+                  (l) => l.accountId !== t.bankAccountId,
+                ) ?? [];
+              const categoryLabel =
+                categoryLines.length > 1
+                  ? `Split (${categoryLines.length}): ${categoryLines
+                      .map((l) => l.account.name)
+                      .join(", ")}`
+                  : (categoryLines[0]?.account.name ?? "?");
               return (
                 <tr key={t.id} data-testid="categorized-row">
                   <td>{isoDate(t.date)}</td>
@@ -166,7 +174,7 @@ export default async function TransactionsPage({
                   <Amount cents={t.amountCents} />
                   <td>{t.bankAccount.name}</td>
                   <td>
-                    {categoryLine?.account.name ?? "?"}{" "}
+                    {categoryLabel}{" "}
                     <form action={uncategorize} className="inline">
                       <input type="hidden" name="transactionId" value={t.id} />
                       <button type="submit" className="secondary">

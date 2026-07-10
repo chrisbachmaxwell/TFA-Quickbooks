@@ -1,8 +1,10 @@
 import { prisma } from "./db";
 import {
   buildCategorizationLines,
+  buildSplitLines,
   validateEntryLines,
   type EntryLine,
+  type SplitInput,
 } from "./ledger";
 
 /** Posts a balanced journal entry; throws (and writes nothing) if invalid. */
@@ -74,6 +76,59 @@ export async function categorizeBankTransaction(
     // Guarded update: under concurrent categorization (double-click, two
     // tabs) only the writer that still sees journalEntryId = null wins;
     // the loser's whole transaction — entry included — rolls back.
+    const claimed = await tx.bankTransaction.updateMany({
+      where: { id: bankTransactionId, journalEntryId: null },
+      data: { journalEntryId: entry.id },
+    });
+    if (claimed.count === 0) {
+      throw new Error("transaction is already categorized");
+    }
+  });
+}
+
+/**
+ * Categorizes one bank transaction across several accounts, atomically —
+ * the split cousin of categorizeBankTransaction, with the same race guard.
+ */
+export async function categorizeBankTransactionSplit(
+  bankTransactionId: string,
+  splits: SplitInput[],
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const txn = await tx.bankTransaction.findUniqueOrThrow({
+      where: { id: bankTransactionId },
+    });
+    if (txn.journalEntryId) {
+      throw new Error("transaction is already categorized");
+    }
+    if (txn.excluded) {
+      throw new Error("transaction is excluded — restore it before categorizing");
+    }
+    const accounts = await tx.account.findMany({
+      where: { id: { in: splits.map((s) => s.accountId) } },
+    });
+    if (accounts.length !== new Set(splits.map((s) => s.accountId)).size) {
+      throw new Error("unknown account in split");
+    }
+    const inactive = accounts.find((a) => !a.active);
+    if (inactive) {
+      throw new Error(`cannot categorize to inactive account "${inactive.name}"`);
+    }
+    const lines = buildSplitLines(txn.bankAccountId, txn.amountCents, splits);
+    validateEntryLines(lines);
+    const entry = await tx.journalEntry.create({
+      data: {
+        date: txn.date,
+        memo: txn.description,
+        lines: {
+          create: lines.map((l) => ({
+            accountId: l.accountId,
+            debitCents: l.debitCents,
+            creditCents: l.creditCents,
+          })),
+        },
+      },
+    });
     const claimed = await tx.bankTransaction.updateMany({
       where: { id: bankTransactionId, journalEntryId: null },
       data: { journalEntryId: entry.id },

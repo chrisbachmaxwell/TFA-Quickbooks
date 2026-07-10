@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   accountBalanceCents,
   buildCategorizationLines,
+  buildSplitLines,
   trialBalanceCents,
   validateEntryLines,
   type EntryLine,
@@ -175,5 +176,48 @@ describe("buildCategorizationLines", () => {
     expect(() => buildCategorizationLines("bank", "rent", 10.5)).toThrow(
       /integer/,
     );
+  });
+});
+
+describe("buildSplitLines", () => {
+  it("money out: debits each split, credits the bank once", () => {
+    const lines = buildSplitLines("bank", -32050, [
+      { accountId: "insurance", amountCents: 20050 },
+      { accountId: "office", amountCents: 12000 },
+    ]);
+    expect(lines).toEqual([
+      { accountId: "insurance", debitCents: 20050, creditCents: 0 },
+      { accountId: "office", debitCents: 12000, creditCents: 0 },
+      { accountId: "bank", debitCents: 0, creditCents: 32050 },
+    ]);
+    expect(() => validateEntryLines(lines)).not.toThrow();
+  });
+
+  it("money in: debits the bank once, credits each split", () => {
+    const lines = buildSplitLines("bank", 100000, [
+      { accountId: "dividends", amountCents: 60000 },
+      { accountId: "interest", amountCents: 40000 },
+    ]);
+    expect(lines[0]).toEqual({ accountId: "bank", debitCents: 100000, creditCents: 0 });
+    expect(() => validateEntryLines(lines)).not.toThrow();
+  });
+
+  it("a single split is equivalent to a plain categorization", () => {
+    expect(buildSplitLines("bank", -8925, [{ accountId: "office", amountCents: 8925 }]))
+      .toEqual(buildCategorizationLines("bank", "office", -8925));
+  });
+
+  it("rejects sums that don't match, non-positive parts, and self-splits", () => {
+    expect(() =>
+      buildSplitLines("bank", -32050, [{ accountId: "office", amountCents: 32000 }]),
+    ).toThrow(/off by -50 cents/);
+    expect(() =>
+      buildSplitLines("bank", -100, [{ accountId: "office", amountCents: 0 }]),
+    ).toThrow(/positive/);
+    expect(() =>
+      buildSplitLines("bank", -100, [{ accountId: "bank", amountCents: 100 }]),
+    ).toThrow(/own bank account/);
+    expect(() => buildSplitLines("bank", -100, [])).toThrow(/at least one/);
+    expect(() => buildSplitLines("bank", 0, [{ accountId: "x", amountCents: 1 }])).toThrow(/zero/);
   });
 });

@@ -142,6 +142,27 @@ a {
   padding: 28px 36px 64px;
 }
 
+/* login page: no sidebar rendered — let content span the whole shell */
+.shell > .content:only-child {
+  grid-column: 1 / -1;
+}
+
+button.nav-link.logout {
+  background: none;
+  border: none;
+  width: 100%;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--brand-ink);
+  padding: 8px 10px;
+}
+
+button.nav-link.logout:hover {
+  background: var(--brand-edge);
+  color: var(--brand-ink-strong);
+}
+
 .container {
   max-width: 1040px;
   margin: 0 auto;

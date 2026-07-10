@@ -1,7 +1,8 @@
 import { defineConfig } from "@playwright/test";
 import fs from "fs";
 
-// Prisma (in the webServer and in test helpers) needs DATABASE_URL.
+// Prisma (in the webServer and in test helpers) needs DATABASE_URL, and the
+// suite needs APP_PASSWORD to log in.
 try {
   process.loadEnvFile(".env");
 } catch {
@@ -16,6 +17,8 @@ const executablePath =
     ? localChromium
     : undefined;
 
+const launchOptions = executablePath ? { executablePath } : {};
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
@@ -25,11 +28,26 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL: "http://localhost:3111",
-    launchOptions: executablePath ? { executablePath } : {},
+    launchOptions,
   },
+  projects: [
+    {
+      name: "setup",
+      testMatch: /auth\.setup\.ts/,
+    },
+    {
+      name: "chromium",
+      testMatch: /.*\.spec\.ts/,
+      dependencies: ["setup"],
+      use: {
+        launchOptions,
+        storageState: "e2e/.auth/user.json",
+      },
+    },
+  ],
   webServer: {
     command: "npx next start --port 3111",
-    url: "http://localhost:3111",
+    url: "http://localhost:3111/login",
     reuseExistingServer: false,
     timeout: 90_000,
   },

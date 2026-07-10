@@ -35,12 +35,14 @@ The gates need Node 20+ and a running PostgreSQL:
 
 ```
 npm install
-cp .env.example .env            # points at postgresql://tfa:tfa@localhost:5432/tfa_quickbooks
+cp .env.example .env            # DATABASE_URL (postgresql://tfa:tfa@localhost:5432/tfa_quickbooks) + APP_PASSWORD
 service postgresql start        # or however Postgres runs on this machine
 sudo -u postgres psql -c "CREATE USER tfa WITH PASSWORD 'tfa' CREATEDB;" \
                       -c "CREATE DATABASE tfa_quickbooks OWNER tfa;"
 npx prisma migrate deploy
 ```
+
+The app is behind a single-password login (`APP_PASSWORD` in `.env`); the Playwright suite logs itself in via `e2e/auth.setup.ts`. Database backup/restore: `npm run db:backup`, `npm run db:restore -- <file> --yes` (needs `pg_dump`/`psql` on PATH). Production deployment is Railway — see `docs/deploy.md`.
 
 The Playwright suite **truncates every table** in the configured database — never point `.env` at a database whose data you care about. Playwright browsers: managed environments with a Chromium at `/opt/pw-browsers/chromium` are picked up automatically; elsewhere run `npx playwright install chromium` once.
 

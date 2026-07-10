@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { logout } from "./login/actions";
 
 function Icon({ d }: { d: string }) {
   return (
@@ -60,6 +61,7 @@ const SECTIONS: Array<{
 
 export default function Nav() {
   const pathname = usePathname();
+  if (pathname === "/login") return null;
   return (
     <aside className="sidebar" data-testid="sidebar">
       <div className="brand">
@@ -84,6 +86,12 @@ export default function Nav() {
           </div>
         ))}
       </nav>
+      <form action={logout} className="nav-section">
+        <button type="submit" className="nav-link logout" data-testid="logout">
+          <Icon d="M15 12H4m0 0 3-3m-3 3 3 3m5-9V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-1" />
+          Log out
+        </button>
+      </form>
     </aside>
   );
 }

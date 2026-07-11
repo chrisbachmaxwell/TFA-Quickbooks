@@ -48,6 +48,12 @@ export default async function TrialBalancePage({
           />
         </label>
         <button type="submit">Run report</button>
+        <a
+          href={`/reports/trial-balance/csv?asOf=${asOf.toISOString().slice(0, 10)}`}
+          data-testid="csv-link"
+        >
+          Download CSV
+        </a>
       </form>
 
       <div className="statement">

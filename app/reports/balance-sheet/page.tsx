@@ -64,6 +64,9 @@ export default async function BalanceSheetPage({
           As of <input type="date" name="asOf" defaultValue={asOfIso} />
         </label>
         <button type="submit">Run report</button>
+        <a href={`/reports/balance-sheet/csv?asOf=${asOfIso}`} data-testid="csv-link">
+          Download CSV
+        </a>
       </form>
 
       <div className="statement">

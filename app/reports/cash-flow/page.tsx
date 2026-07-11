@@ -3,6 +3,7 @@ import type { ReportSection } from "@/lib/ledger";
 import { loadEntries } from "@/lib/reports";
 import { formatCents } from "@/lib/money";
 import { parseIsoDateStrict, todayUtc } from "@/lib/dates";
+import PresetLinks from "../preset-links";
 
 export const dynamic = "force-dynamic";
 
@@ -107,7 +108,14 @@ export default async function CashFlowPage({
           />
         </label>
         <button type="submit">Run report</button>
+        <a
+          href={`/reports/cash-flow/csv?from=${from.toISOString().slice(0, 10)}&to=${to.toISOString().slice(0, 10)}`}
+          data-testid="csv-link"
+        >
+          Download CSV
+        </a>
       </form>
+      <PresetLinks basePath="/reports/cash-flow" />
 
       <div className="statement">
         <div className="statement-header">

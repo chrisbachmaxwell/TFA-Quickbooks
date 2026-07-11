@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { formatCents } from "@/lib/money";
 import { parseIsoDateStrict, todayUtc } from "@/lib/dates";
+import PresetLinks from "../preset-links";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,7 @@ export default async function GeneralLedgerPage({
         </label>
         <button type="submit">Run report</button>
       </form>
+      <PresetLinks basePath="/reports/general-ledger" />
 
       <div className="statement">
         <div className="statement-header">

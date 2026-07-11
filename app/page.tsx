@@ -10,19 +10,21 @@ import MonthlyChart from "./monthly-chart";
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
-  const [{ accounts, lines }, toReview, hasAccounts] = await Promise.all([
-    loadLedger(),
-    prisma.bankTransaction.count({
-      where: { journalEntryId: null, excluded: false, matchedEntryId: null },
-    }),
-    prisma.account.count().then((n) => n > 0),
-  ]);
+  const [{ accounts, lines }, toReview, hasAccounts, cashAccounts] =
+    await Promise.all([
+      loadLedger(),
+      prisma.bankTransaction.count({
+        where: { journalEntryId: null, excluded: false, matchedEntryId: null },
+      }),
+      prisma.account.count().then((n) => n > 0),
+      prisma.account.findMany({ where: { cash: true }, select: { id: true } }),
+    ]);
 
   const today = todayUtc();
   const year = today.getUTCFullYear();
   const startOfYear = new Date(Date.UTC(year, 0, 1));
   const ytd = profitAndLoss(accounts, lines, startOfYear, today);
-  const cash = cashBalanceCents(accounts, lines);
+  const cash = cashBalanceCents(new Set(cashAccounts.map((a) => a.id)), lines);
   const months = monthlyIncomeExpenses(accounts, lines, year);
 
   return (

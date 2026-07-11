@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { formatCents } from "@/lib/money";
 import { buildSuggestionMap, normalizeDescription } from "@/lib/suggestions";
-import { bulkCategorize, categorize, setExcluded, uncategorize } from "./actions";
+import { bulkCategorize, categorize, setExcluded, uncategorize, unmatch } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -350,8 +350,14 @@ export default async function TransactionsPage({
                 <td>{t.description}</td>
                 <Amount cents={t.amountCents} />
                 <td>{t.bankAccount.name}</td>
-                <td className="muted">
-                  matched to a transfer — undo the transfer to release it
+                <td>
+                  <span className="muted">matched to a transfer</span>{" "}
+                  <form action={unmatch} className="inline">
+                    <input type="hidden" name="transactionId" value={t.id} />
+                    <button type="submit" className="secondary">
+                      Unmatch
+                    </button>
+                  </form>
                 </td>
               </tr>
             ))}

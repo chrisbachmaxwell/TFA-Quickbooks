@@ -57,11 +57,22 @@ async function matchIncomingTransfers(bankAccountId: string): Promise<number> {
       })),
     );
     if (entryId) {
-      await prisma.bankTransaction.update({
-        where: { id: row.id },
-        data: { matchedEntryId: entryId },
+      // Atomic claim: re-check the entry is still unmatched inside a
+      // transaction so two concurrent imports can't attach two mirrors
+      // to one entry.
+      const claimed = await prisma.$transaction(async (tx) => {
+        const stillFree = await tx.journalEntry.findFirst({
+          where: { id: entryId, matchedTransfers: { none: {} } },
+          select: { id: true },
+        });
+        if (!stillFree) return 0;
+        const r = await tx.bankTransaction.updateMany({
+          where: { id: row.id, matchedEntryId: null, journalEntryId: null },
+          data: { matchedEntryId: entryId },
+        });
+        return r.count;
       });
-      matched += 1;
+      matched += claimed;
     }
   }
   return matched;

@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
 import {
+  categorizeBankTransaction,
+  categorizeBankTransactionSplit,
+} from "../lib/posting";
+import {
   createAccountViaUi,
   db,
   resetDb,
@@ -84,6 +88,48 @@ test("the dashboard review count ignores matched and excluded rows", async ({
   await expect(page.getByTestId("review-callout")).toContainText(
     "1 transaction waiting for review",
   );
+});
+
+test("a matched mirror row REFUSES categorization — the stale-tab double-post is blocked", async ({
+  page,
+}) => {
+  // Review-fix ratchet (2026-07-11 finding 1): a matched row has
+  // journalEntryId = null, so before the fix a stale form or direct call
+  // could post it a second time — silently doubling the transfer.
+  const mirror = await db.bankTransaction.findFirst({
+    where: { matchedEntryId: { not: null } },
+  });
+  expect(mirror).not.toBeNull();
+  const dividendAccount = await db.account.findFirst({
+    where: { name: "Dividend Income" },
+  });
+
+  await expect(
+    categorizeBankTransaction(mirror!.id, dividendAccount!.id),
+  ).rejects.toThrow(/matched to a transfer/);
+  await expect(
+    categorizeBankTransactionSplit(mirror!.id, [
+      { accountId: dividendAccount!.id, amountCents: Math.abs(mirror!.amountCents) },
+    ]),
+  ).rejects.toThrow(/matched to a transfer/);
+  expect(await db.journalEntry.count()).toBe(1); // nothing double-posted
+
+  // Unmatch is the explicit escape hatch when the auto-match guessed wrong.
+  await page.goto("/transactions");
+  await page
+    .getByTestId("matched-row")
+    .first()
+    .getByRole("button", { name: "Unmatch" })
+    .click();
+  await expect(page.getByTestId("matched-row")).toHaveCount(0);
+  await expect(page.getByTestId("uncategorized-row")).toHaveCount(2);
+
+  // Put the match back for the following tests (re-categorize releases and
+  // re-matches via undo+redo below, so just restore the link directly).
+  await db.bankTransaction.update({
+    where: { id: mirror!.id },
+    data: { matchedEntryId: mirror!.matchedEntryId },
+  });
 });
 
 test("undoing the transfer releases the mirror back to review", async ({

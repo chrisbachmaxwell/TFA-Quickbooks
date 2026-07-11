@@ -74,11 +74,22 @@ describe("monthlyIncomeExpenses", () => {
 });
 
 describe("cashBalanceCents", () => {
-  it("matches the balance-sheet asset total", () => {
-    expect(cashBalanceCents(accounts, lines)).toBe(1532450);
+  const cashIds = new Set(["checking"]);
+
+  it("matches the balance-sheet asset total when all assets are cash", () => {
+    expect(cashBalanceCents(cashIds, lines)).toBe(1532450);
+  });
+
+  it("excludes non-cash assets (investments are not 'cash on hand')", () => {
+    const withBrokerage = [
+      ...lines,
+      { accountId: "brokerage", debitCents: 500000, creditCents: 0, date: new Date("2026-05-01T00:00:00Z") },
+      { accountId: "checking", debitCents: 0, creditCents: 500000, date: new Date("2026-05-01T00:00:00Z") },
+    ];
+    expect(cashBalanceCents(cashIds, withBrokerage)).toBe(1532450 - 500000);
   });
 
   it("is zero with no lines", () => {
-    expect(cashBalanceCents(accounts, [])).toBe(0);
+    expect(cashBalanceCents(cashIds, [])).toBe(0);
   });
 });

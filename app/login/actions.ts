@@ -3,16 +3,20 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { passwordMatches, SESSION_COOKIE, sessionTokenFor } from "@/lib/auth";
+import {
+  isBlocked,
+  newRateLimitState,
+  registerFailure,
+  registerSuccess,
+  type RateLimitState,
+} from "@/lib/rate-limit";
 
-// In-memory, per-instance failure tracking. Good enough for a single-user,
-// single-instance deployment; a horizontally scaled app would need a store.
+// Per-key + global failure limiting (x-forwarded-for is client-controlled,
+// so a per-key map alone is spoofable — the global cap backstops it).
 // Lives on globalThis because the bundler can instantiate this module once
-// per importing chunk — a plain module const would give each copy its own map.
-type Attempts = Map<string, { count: number; resetAt: number }>;
-const globalState = globalThis as unknown as { __loginAttempts?: Attempts };
-const attempts: Attempts = (globalState.__loginAttempts ??= new Map());
-const LIMIT = 8;
-const WINDOW_MS = 10 * 60_000;
+// per importing chunk.
+const globalState = globalThis as unknown as { __loginLimiter?: RateLimitState };
+const limiter: RateLimitState = (globalState.__loginLimiter ??= newRateLimitState());
 
 function fail(message: string): never {
   redirect(`/login?error=${encodeURIComponent(message)}`);
@@ -22,8 +26,7 @@ export async function login(formData: FormData): Promise<void> {
   const hdrs = await headers();
   const ip = (hdrs.get("x-forwarded-for") ?? "local").split(",")[0].trim();
   const now = Date.now();
-  const entry = attempts.get(ip);
-  if (entry && entry.resetAt > now && entry.count >= LIMIT) {
+  if (isBlocked(limiter, ip, now)) {
     fail("Too many attempts — try again in a few minutes.");
   }
   const configured = process.env.APP_PASSWORD;
@@ -32,15 +35,10 @@ export async function login(formData: FormData): Promise<void> {
   }
   const supplied = String(formData.get("password") ?? "");
   if (!passwordMatches(supplied, configured)) {
-    const e =
-      entry && entry.resetAt > now
-        ? entry
-        : { count: 0, resetAt: now + WINDOW_MS };
-    e.count += 1;
-    attempts.set(ip, e);
+    registerFailure(limiter, ip, now);
     fail("Wrong password.");
   }
-  attempts.delete(ip);
+  registerSuccess(limiter, ip);
   (await cookies()).set(SESSION_COOKIE, sessionTokenFor(configured), {
     httpOnly: true,
     sameSite: "lax",

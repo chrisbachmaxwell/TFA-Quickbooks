@@ -51,6 +51,11 @@ export async function categorizeBankTransaction(
     if (txn.excluded) {
       throw new Error("transaction is excluded — restore it before categorizing");
     }
+    if (txn.matchedEntryId) {
+      throw new Error(
+        "transaction is matched to a transfer — it is already in the books; unmatch it first if that's wrong",
+      );
+    }
     const category = await tx.account.findUniqueOrThrow({
       where: { id: categoryAccountId },
     });
@@ -80,7 +85,7 @@ export async function categorizeBankTransaction(
     // tabs) only the writer that still sees journalEntryId = null wins;
     // the loser's whole transaction — entry included — rolls back.
     const claimed = await tx.bankTransaction.updateMany({
-      where: { id: bankTransactionId, journalEntryId: null },
+      where: { id: bankTransactionId, journalEntryId: null, matchedEntryId: null },
       data: { journalEntryId: entry.id },
     });
     if (claimed.count === 0) {
@@ -132,6 +137,11 @@ export async function categorizeBankTransactionSplit(
     if (txn.excluded) {
       throw new Error("transaction is excluded — restore it before categorizing");
     }
+    if (txn.matchedEntryId) {
+      throw new Error(
+        "transaction is matched to a transfer — it is already in the books; unmatch it first if that's wrong",
+      );
+    }
     const accounts = await tx.account.findMany({
       where: { id: { in: splits.map((s) => s.accountId) } },
     });
@@ -158,7 +168,7 @@ export async function categorizeBankTransactionSplit(
       },
     });
     const claimed = await tx.bankTransaction.updateMany({
-      where: { id: bankTransactionId, journalEntryId: null },
+      where: { id: bankTransactionId, journalEntryId: null, matchedEntryId: null },
       data: { journalEntryId: entry.id },
     });
     if (claimed.count === 0) {
@@ -219,5 +229,26 @@ export async function deleteManualEntry(entryId: string): Promise<void> {
       );
     }
     await tx.journalEntry.delete({ where: { id: entryId } });
+  });
+}
+
+/**
+ * Releases a matched transfer-mirror row back to review — for when the
+ * auto-match guessed wrong and the row is a real transaction of its own.
+ * The transfer entry itself stays posted (undo it from the review screen
+ * if the whole transfer was wrong).
+ */
+export async function unmatchTransfer(bankTransactionId: string): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const txn = await tx.bankTransaction.findUniqueOrThrow({
+      where: { id: bankTransactionId },
+    });
+    if (!txn.matchedEntryId) {
+      throw new Error("transaction is not matched to a transfer");
+    }
+    await tx.bankTransaction.update({
+      where: { id: bankTransactionId },
+      data: { matchedEntryId: null },
+    });
   });
 }

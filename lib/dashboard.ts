@@ -31,17 +31,14 @@ export function monthlyIncomeExpenses(
   return months;
 }
 
-/** Total balance across all ASSET accounts — the "cash on hand" tile. */
+/** Total balance across cash accounts only — the "cash on hand" tile. */
 export function cashBalanceCents(
-  accounts: AccountInfo[],
+  cashAccountIds: ReadonlySet<string>,
   lines: DatedLine[],
 ): number {
-  const assetIds = new Set(
-    accounts.filter((a) => a.type === "ASSET").map((a) => a.id),
-  );
   let total = 0;
   for (const line of lines) {
-    if (!assetIds.has(line.accountId)) continue;
+    if (!cashAccountIds.has(line.accountId)) continue;
     total += line.debitCents - line.creditCents;
   }
   return total;

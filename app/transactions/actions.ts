@@ -6,6 +6,7 @@ import {
   categorizeBankTransaction,
   setBankTransactionExcluded,
   uncategorizeBankTransaction,
+  unmatchTransfer,
 } from "@/lib/posting";
 
 async function run(op: () => Promise<void>): Promise<void> {
@@ -75,4 +76,9 @@ export async function categorize(formData: FormData): Promise<void> {
   }
   revalidatePath("/transactions");
   redirect("/transactions");
+}
+
+export async function unmatch(formData: FormData): Promise<void> {
+  const transactionId = String(formData.get("transactionId") ?? "");
+  await run(() => unmatchTransfer(transactionId));
 }

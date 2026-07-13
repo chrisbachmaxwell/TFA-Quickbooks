@@ -11,14 +11,16 @@ test.afterAll(async () => {
 
 test("an empty book offers starter accounts, exactly once", async ({ page }) => {
   await page.goto("/accounts");
-  await page.getByTestId("starter-accounts").click();
-  await expect(page.getByTestId("account-row")).toHaveCount(17);
-  // Checking and Savings are cash; Investments is not.
+  await page.getByTestId("starter-accounts").click(); // installs the default (holding) template
+  const { templateById } = await import("../lib/coa-templates");
+  const holding = templateById("holding")!;
+  await expect(page.getByTestId("account-row")).toHaveCount(holding.accounts.length);
+  // Checking is cash; Brokerage Investments is not.
   await expect(
     page.locator('tr[data-name="Checking"] .badge').filter({ hasText: "Cash" }),
   ).toHaveCount(1);
   await expect(
-    page.locator('tr[data-name="Investments"] .badge').filter({ hasText: "Cash" }),
+    page.locator('tr[data-name="Brokerage Investments"] .badge').filter({ hasText: "Cash" }),
   ).toHaveCount(0);
   await expect(page.getByTestId("starter-accounts")).toHaveCount(0);
 });

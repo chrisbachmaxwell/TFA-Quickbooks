@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma, AccountType } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { missingAccounts, templateById } from "@/lib/coa-templates";
 
 const TYPES: readonly AccountType[] = [
   "ASSET",
@@ -69,44 +70,47 @@ export async function renameAccount(formData: FormData): Promise<void> {
   redirect("/accounts");
 }
 
-const STARTER_ACCOUNTS: Array<{
-  name: string;
-  type: AccountType;
-  cash?: boolean;
-}> = [
-  { name: "Checking", type: "ASSET", cash: true },
-  { name: "Savings", type: "ASSET", cash: true },
-  { name: "Investments", type: "ASSET" },
-  { name: "Credit Card", type: "LIABILITY" },
-  { name: "Owner Contributions", type: "EQUITY" },
-  { name: "Owner Draws", type: "EQUITY" },
-  { name: "Dividend Income", type: "INCOME" },
-  { name: "Interest Income", type: "INCOME" },
-  { name: "Capital Gains", type: "INCOME" },
-  { name: "Consulting Income", type: "INCOME" },
-  { name: "Accounting & Legal", type: "EXPENSE" },
-  { name: "Bank Fees", type: "EXPENSE" },
-  { name: "Insurance", type: "EXPENSE" },
-  { name: "Office Expenses", type: "EXPENSE" },
-  { name: "Software & Subscriptions", type: "EXPENSE" },
-  { name: "Taxes & Licenses", type: "EXPENSE" },
-  { name: "Travel", type: "EXPENSE" },
-];
-
-export async function installStarterAccounts(): Promise<void> {
-  const existing = await prisma.account.count();
-  if (existing > 0) {
-    fail("Starter accounts are only for an empty chart of accounts.");
+export async function installTemplate(formData: FormData): Promise<void> {
+  const templateId = String(formData.get("template") ?? "");
+  const template = templateById(templateId);
+  if (!template) fail("Pick a chart of accounts template.");
+  const existing = await prisma.account.findMany({ select: { name: true } });
+  const missing = missingAccounts(template, existing.map((a) => a.name));
+  if (missing.length === 0) {
+    fail("Every account in that template already exists.");
   }
   await prisma.account.createMany({
-    data: STARTER_ACCOUNTS.map((a) => ({
+    data: missing.map((a) => ({
       name: a.name,
       type: a.type,
       cash: a.cash ?? false,
     })),
+    skipDuplicates: true,
   });
   revalidatePath("/accounts");
   redirect("/accounts");
+}
+
+export async function addSuggestedAccount(formData: FormData): Promise<void> {
+  const templateId = String(formData.get("template") ?? "");
+  const name = String(formData.get("name") ?? "");
+  const template = templateById(templateId);
+  const suggestion = template?.accounts.find((a) => a.name === name);
+  if (!suggestion) fail("Unknown suggested account.");
+  try {
+    await prisma.account.create({
+      data: {
+        name: suggestion.name,
+        type: suggestion.type,
+        cash: suggestion.cash ?? false,
+      },
+    });
+  } catch (e) {
+    if (isDuplicateName(e)) fail(`An account named "${name}" already exists.`);
+    throw e;
+  }
+  revalidatePath("/accounts");
+  redirect(`/accounts?suggest=${encodeURIComponent(templateId)}`);
 }
 
 export async function setAccountCash(formData: FormData): Promise<void> {

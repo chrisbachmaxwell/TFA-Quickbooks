@@ -1,12 +1,14 @@
 import { prisma } from "@/lib/db";
 import type { Account } from "@prisma/client";
 import {
+  addSuggestedAccount,
   createAccount,
-  installStarterAccounts,
+  installTemplate,
   renameAccount,
   setAccountActive,
   setAccountCash,
 } from "./actions";
+import { COA_TEMPLATES, missingAccounts, templateById } from "@/lib/coa-templates";
 
 export const dynamic = "force-dynamic";
 
@@ -91,9 +93,9 @@ function AccountRow({ account }: { account: Account }) {
 export default async function AccountsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; suggest?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, suggest } = await searchParams;
   const accounts = await prisma.account.findMany({
     orderBy: [{ type: "asc" }, { name: "asc" }],
   });
@@ -141,12 +143,19 @@ export default async function AccountsPage({
             <strong>No accounts yet.</strong>
           </p>
           <p>
-            Create the first one above — or install a sensible starter set for
-            a holding company and rename from there.
+            Start from a standard chart of accounts — pick the one closest to
+            this business and rename anything later.
           </p>
-          <form action={installStarterAccounts}>
+          <form action={installTemplate} className="inline">
+            <select name="template" required defaultValue="holding" aria-label="Chart of accounts template">
+              {COA_TEMPLATES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.accounts.length} accounts)
+                </option>
+              ))}
+            </select>
             <button type="submit" data-testid="starter-accounts">
-              Add starter accounts
+              Add these accounts
             </button>
           </form>
         </div>
@@ -178,6 +187,66 @@ export default async function AccountsPage({
           );
         })
       )}
+
+      {accounts.length > 0 && (() => {
+        const template = templateById(suggest ?? "holding") ?? COA_TEMPLATES[0];
+        const missing = missingAccounts(template, accounts.map((a) => a.name));
+        return (
+          <div className="card" data-testid="suggested-card">
+            <p className="card-title">Suggested accounts</p>
+            <form method="get" className="inline" style={{ marginBottom: 10 }}>
+              <select name="suggest" defaultValue={template.id} aria-label="Suggestion template">
+                {COA_TEMPLATES.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className="secondary">
+                Show
+              </button>
+            </form>
+            {missing.length > 0 && (
+              <form action={installTemplate} className="inline" style={{ marginBottom: 10 }}>
+                <input type="hidden" name="template" value={template.id} />
+                <button type="submit" data-testid="add-all-missing">
+                  Add all {missing.length} missing
+                </button>
+              </form>
+            )}
+            {missing.length === 0 ? (
+              <p className="muted" data-testid="suggestions-empty" style={{ margin: 0 }}>
+                Your book already has every account from this template. ✨
+              </p>
+            ) : (
+              <table>
+                <tbody>
+                  {missing.map((a) => (
+                    <tr key={a.name} data-testid="suggested-row">
+                      <td>{a.name}</td>
+                      <td>
+                        <span className={`badge ${a.type.toLowerCase()}`}>
+                          {TYPE_LABELS[a.type]}
+                        </span>{" "}
+                        {a.cash && <span className="badge asset">Cash</span>}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <form action={addSuggestedAccount} className="inline">
+                          <input type="hidden" name="template" value={template.id} />
+                          <input type="hidden" name="name" value={a.name} />
+                          <button type="submit" className="secondary">
+                            Add
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

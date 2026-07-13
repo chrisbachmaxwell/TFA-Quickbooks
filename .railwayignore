@@ -1,0 +1,8 @@
+node_modules/
+.next/
+.env
+.env.*
+backups/
+e2e/.auth/
+test-results/
+playwright-report/

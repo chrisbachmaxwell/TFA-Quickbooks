@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 import fs from "fs";
 
 // Prisma (in the webServer and in test helpers) needs DATABASE_URL, and the
-// suite needs APP_PASSWORD to log in.
+// suite authenticates itself via e2e/auth.setup.ts (magic-link flow).
 try {
   process.loadEnvFile(".env");
 } catch {

@@ -2,51 +2,66 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { passwordMatches, SESSION_COOKIE, sessionTokenFor } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import {
+  LINK_EXPIRY_MINUTES,
+  newLoginToken,
+  normalizeEmail,
+  SESSION_COOKIE,
+} from "@/lib/auth";
+import { sendSignInLink } from "@/lib/email";
 import {
   isBlocked,
   newRateLimitState,
   registerFailure,
-  registerSuccess,
   type RateLimitState,
 } from "@/lib/rate-limit";
 
-// Per-key + global failure limiting (x-forwarded-for is client-controlled,
-// so a per-key map alone is spoofable — the global cap backstops it).
-// Lives on globalThis because the bundler can instantiate this module once
-// per importing chunk.
-const globalState = globalThis as unknown as { __loginLimiter?: RateLimitState };
-const limiter: RateLimitState = (globalState.__loginLimiter ??= newRateLimitState());
+// Rate-limit link REQUESTS (per ip and per email — both are attacker-chosen,
+// so the limiter's global cap is the real backstop).
+const globalState = globalThis as unknown as { __linkLimiter?: RateLimitState };
+const limiter: RateLimitState = (globalState.__linkLimiter ??= newRateLimitState());
 
-function fail(message: string): never {
-  redirect(`/login?error=${encodeURIComponent(message)}`);
-}
+const NEUTRAL_MESSAGE =
+  "If that address is authorized, a sign-in link is on its way. It expires in 15 minutes.";
 
-export async function login(formData: FormData): Promise<void> {
+export async function requestLink(formData: FormData): Promise<void> {
   const hdrs = await headers();
   const ip = (hdrs.get("x-forwarded-for") ?? "local").split(",")[0].trim();
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
   const now = Date.now();
-  if (isBlocked(limiter, ip, now)) {
-    fail("Too many attempts — try again in a few minutes.");
+  if (!email || !email.includes("@")) {
+    redirect(`/login?error=${encodeURIComponent("Enter your email address.")}`);
   }
-  const configured = process.env.APP_PASSWORD;
-  if (!configured) {
-    fail("APP_PASSWORD is not configured on the server.");
+  // Keyed on the ip+email pair; the limiter's global cap backstops
+  // attackers who rotate either half.
+  const key = `${ip}|${email}`;
+  if (isBlocked(limiter, key, now)) {
+    redirect(
+      `/login?error=${encodeURIComponent("Too many requests — try again in a few minutes.")}`,
+    );
   }
-  const supplied = String(formData.get("password") ?? "");
-  if (!passwordMatches(supplied, configured)) {
-    registerFailure(limiter, ip, now);
-    fail("Wrong password.");
-  }
-  registerSuccess(limiter, ip);
-  (await cookies()).set(SESSION_COOKIE, sessionTokenFor(configured), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 30,
-    path: "/",
+  registerFailure(limiter, key, now);
+
+  const authorized = await prisma.authorizedUser.findUnique({
+    where: { email },
   });
-  redirect("/");
+  if (authorized) {
+    const { token, tokenHash } = newLoginToken();
+    await prisma.loginToken.create({
+      data: {
+        email,
+        tokenHash,
+        expiresAt: new Date(now + LINK_EXPIRY_MINUTES * 60_000),
+      },
+    });
+    const proto = hdrs.get("x-forwarded-proto") ?? "http";
+    const host = hdrs.get("host") ?? "localhost:3000";
+    const link = `${proto}://${host}/login/verify?token=${token}`;
+    await sendSignInLink({ to: email, link });
+  }
+  // Same message either way — never reveal whether an email is authorized.
+  redirect(`/login?sent=${encodeURIComponent(NEUTRAL_MESSAGE)}`);
 }
 
 export async function logout(): Promise<void> {

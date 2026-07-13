@@ -17,18 +17,19 @@ You'll create one Railway project with two pieces: a **Postgres database** and t
 
 6. Click the **TFA-Quickbooks service** (the app, not Postgres) → **Variables** tab.
 7. Add variable → name `DATABASE_URL`. For the value, click the **reference** option and pick the Postgres service's `DATABASE_URL` (it looks like `${{Postgres.DATABASE_URL}}`). This wires the app to the database with no copying of passwords.
-8. Add variable → name `APP_PASSWORD` → value: the password you'll type to open the books. Make it long. **Don't reuse a bank password, and don't commit it anywhere.**
+8. Add variable → name `SESSION_SECRET` → value: any long random string (30+ characters of keyboard mashing is fine). It signs login sessions; changing it later signs everyone out instantly.
+8b. (For email sign-in links) Add `RESEND_API_KEY` with your key from resend.com, and optionally `EMAIL_FROM` (e.g. `TFA Books <books@yourdomain.com>`). Without these, sign-in links are printed to the service's **Logs** tab instead of emailed — you can still log in by copying the link from there.
 9. The service redeploys itself. Wait for the green **Success**.
 
 ## 4. Give it a URL and log in
 
 10. Still on the app service: **Settings** tab → **Networking** → **Generate Domain**.
 11. Open the URL it gives you. You should see the TFA Books login screen.
-12. Log in with your `APP_PASSWORD`. Done — the books are live and private.
+12. Enter an authorized email address and click the sign-in link you receive (or grab it from the Logs tab if email isn't configured yet). Done — the books are live and private.
 
 ## Afterwards
 
 - **Every push to the repo's default branch deploys automatically.** The start command runs database migrations first, so schema changes apply themselves.
 - **Backups**: Railway's Postgres has point-in-time recovery on paid plans; additionally, anyone with the repo checked out and `DATABASE_URL` in `.env` can run `npm run db:backup` (and `npm run db:restore -- <file> --yes`) — see AGENTS.md.
-- **Changing the app password**: edit `APP_PASSWORD` in Variables. Every logged-in session everywhere is signed out instantly (sessions are derived from the password).
+- **Managing who can log in**: inside the app, Settings → Users. **Signing everyone out at once**: change `SESSION_SECRET` in Variables.
 - If the deploy fails, open the failed deploy's **logs** and read the last lines — most likely a missing variable from step 3.

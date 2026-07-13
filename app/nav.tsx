@@ -55,6 +55,10 @@ const SECTIONS: Array<{
     ],
   },
   {
+    heading: "Settings",
+    links: [{ href: "/settings/users", label: "Users", icon: "accounts" }],
+  },
+  {
     heading: "Reports",
     links: [
       { href: "/reports", label: "All reports", icon: "accounts" },

@@ -66,3 +66,20 @@ model JournalLine {
   debitCents  Int          @default(0)
   creditCents Int          @default(0)
 }
+
+// Passwordless auth: only these emails may request sign-in links.
+model AuthorizedUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
+
+// Single-use magic-link tokens; only the SHA-256 hash is stored.
+model LoginToken {
+  id        String    @id @default(cuid())
+  email     String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
